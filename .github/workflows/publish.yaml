@@ -36,7 +36,7 @@ jobs:
           ARTIFACT_NAME=$(basename "${{ steps.jprm.outputs.artifact }}")
           md5sum "${ARTIFACT_NAME}" > "${ARTIFACT_NAME%.zip}.md5"
           sha256sum "${ARTIFACT_NAME}" > "${ARTIFACT_NAME%.zip}.sha256"
-          
+
           MD5_VALUE=$(md5sum "${ARTIFACT_NAME}" | awk '{print $1}')
           echo "md5=${MD5_VALUE}" >> $GITHUB_OUTPUT
           echo "MD5: ${MD5_VALUE}"
@@ -81,15 +81,15 @@ jobs:
           import json
           import os
           from datetime import datetime, timezone
-          
+
           version = os.environ['VERSION']
           repo = os.environ['REPO']
-          
+
           # Read build.yaml for plugin metadata
           import yaml
           with open('build.yaml', 'r') as f:
               build_config = yaml.safe_load(f)
-          
+
           # Prepare new version entry
           new_version = {
               "version": version.lstrip('v'),
@@ -99,21 +99,21 @@ jobs:
               "checksum": os.environ.get('MD5_CHECKSUM', ''),
               "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
           }
-          
+
           # Read or create manifest.json
           try:
               with open('manifest.json', 'r') as f:
                   manifest = json.load(f)
           except FileNotFoundError:
               manifest = []
-          
+
           # Find or create plugin entry
           plugin_entry = None
           for entry in manifest:
               if entry['guid'] == build_config['guid']:
                   plugin_entry = entry
                   break
-          
+
           if plugin_entry is None:
               plugin_entry = {
                   "guid": build_config['guid'],
@@ -125,14 +125,14 @@ jobs:
                   "versions": []
               }
               manifest.append(plugin_entry)
-          
+
           # Add new version (prepend to keep newest first)
           plugin_entry['versions'].insert(0, new_version)
-          
+
           # Write updated manifest
           with open('manifest.json', 'w') as f:
               json.dump(manifest, f, indent=4)
-          
+
           print("Manifest updated successfully!")
           print(f"Added version: {new_version['version']}")
           print(f"Checksum: {new_version['checksum']}")
