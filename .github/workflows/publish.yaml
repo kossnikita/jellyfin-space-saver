@@ -1,4 +1,4 @@
-name: '🚀 Publish Plugin'
+name: "🚀 Publish Plugin"
 
 on:
   release:
@@ -6,13 +6,142 @@ on:
       - released
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  call:
-    uses: jellyfin/jellyfin-meta-plugins/.github/workflows/publish.yaml@master
-    with:
-      version: ${{ github.event.release.tag_name }}
-      is-unstable: ${{ github.event.release.prerelease }}
-    secrets:
-      deploy-host: ${{ secrets.DEPLOY_HOST }}
-      deploy-user: ${{ secrets.DEPLOY_USER }}
-      deploy-key: ${{ secrets.DEPLOY_KEY }}
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      md5: ${{ steps.checksums.outputs.md5 }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Build Jellyfin Plugin
+        uses: oddstr13/jellyfin-plugin-repository-manager@v1.1.1
+        id: jprm
+        with:
+          dotnet-target: "net9.0"
+
+      - name: Generate Checksums
+        id: checksums
+        run: |
+          cd $(dirname "${{ steps.jprm.outputs.artifact }}")
+          ARTIFACT_NAME=$(basename "${{ steps.jprm.outputs.artifact }}")
+          md5sum "${ARTIFACT_NAME}" > "${ARTIFACT_NAME%.zip}.md5"
+          sha256sum "${ARTIFACT_NAME}" > "${ARTIFACT_NAME%.zip}.sha256"
+          
+          MD5_VALUE=$(md5sum "${ARTIFACT_NAME}" | awk '{print $1}')
+          echo "md5=${MD5_VALUE}" >> $GITHUB_OUTPUT
+          echo "MD5: ${MD5_VALUE}"
+          echo "SHA256: $(cat ${ARTIFACT_NAME%.zip}.sha256)"
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.jprm.outputs.artifact }}
+            ${{ steps.jprm.outputs.artifact }}.md5
+            ${{ steps.jprm.outputs.artifact }}.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: manifest
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Update Manifest
+        env:
+          VERSION: ${{ github.event.release.tag_name }}
+          REPO: ${{ github.repository }}
+          MD5_CHECKSUM: ${{ needs.build.outputs.md5 }}
+        run: |
+          python3 << 'EOF'
+          import json
+          import os
+          from datetime import datetime, timezone
+          
+          version = os.environ['VERSION']
+          repo = os.environ['REPO']
+          
+          # Read build.yaml for plugin metadata
+          import yaml
+          with open('build.yaml', 'r') as f:
+              build_config = yaml.safe_load(f)
+          
+          # Prepare new version entry
+          new_version = {
+              "version": version.lstrip('v'),
+              "changelog": "Release version " + version.lstrip('v'),
+              "targetAbi": build_config['targetAbi'],
+              "sourceUrl": f"https://github.com/{repo}/releases/download/{version}/space-saver_{version.lstrip('v')}.0.zip",
+              "checksum": os.environ.get('MD5_CHECKSUM', ''),
+              "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+          }
+          
+          # Read or create manifest.json
+          try:
+              with open('manifest.json', 'r') as f:
+                  manifest = json.load(f)
+          except FileNotFoundError:
+              manifest = []
+          
+          # Find or create plugin entry
+          plugin_entry = None
+          for entry in manifest:
+              if entry['guid'] == build_config['guid']:
+                  plugin_entry = entry
+                  break
+          
+          if plugin_entry is None:
+              plugin_entry = {
+                  "guid": build_config['guid'],
+                  "name": build_config['name'],
+                  "description": build_config['description'],
+                  "overview": build_config['overview'],
+                  "owner": build_config['owner'],
+                  "category": build_config['category'],
+                  "versions": []
+              }
+              manifest.append(plugin_entry)
+          
+          # Add new version (prepend to keep newest first)
+          plugin_entry['versions'].insert(0, new_version)
+          
+          # Write updated manifest
+          with open('manifest.json', 'w') as f:
+              json.dump(manifest, f, indent=4)
+          
+          print("Manifest updated successfully!")
+          print(f"Added version: {new_version['version']}")
+          print(f"Checksum: {new_version['checksum']}")
+          EOF
+
+      - name: Commit and Push Manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "Update manifest for version ${{ github.event.release.tag_name }}" || echo "No changes to commit"
+          git push origin manifest
