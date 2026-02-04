@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using MediaBrowser.Model.Plugins;
 
 namespace Jellyfin.Plugin.SpaceSaver.Configuration;
@@ -85,7 +86,7 @@ public class PluginConfiguration : BasePluginConfiguration
     public PluginConfiguration()
     {
         MinResolution = MinimumResolution.P720;
-        ExcludedCodecs = new[] { "hevc", "av1" };
+        ExcludedCodecs = new List<string> { "hevc", "av1" };
         Preset = H265Preset.Medium;
         CRF = 23;
         ReplaceOriginalFile = false;
@@ -101,7 +102,7 @@ public class PluginConfiguration : BasePluginConfiguration
     /// <summary>
     /// Gets or sets the list of codecs to exclude from conversion.
     /// </summary>
-    public string[] ExcludedCodecs { get; set; }
+    public IReadOnlyList<string> ExcludedCodecs { get; set; }
 
     /// <summary>
     /// Gets or sets the H265 encoding preset.

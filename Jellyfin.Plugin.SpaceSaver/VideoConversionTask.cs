@@ -75,7 +75,7 @@ public class VideoConversionTask : IScheduledTask
 
         _logger.LogInformation("Starting video conversion task");
 
-        var videos = await GetEligibleVideosAsync(cancellationToken);
+        var videos = await GetEligibleVideosAsync(cancellationToken).ConfigureAwait(false);
         _logger.LogInformation("Found {Count} videos eligible for conversion", videos.Count);
 
         if (videos.Count == 0)
@@ -95,7 +95,7 @@ public class VideoConversionTask : IScheduledTask
             try
             {
                 _logger.LogInformation("Processing: {Path}", video.Path);
-                var success = await ConvertVideoAsync(video, cancellationToken);
+                var success = await ConvertVideoAsync(video, cancellationToken).ConfigureAwait(false);
 
                 if (success)
                 {
@@ -132,7 +132,7 @@ public class VideoConversionTask : IScheduledTask
         {
             new TaskTriggerInfo
             {
-                Type = TaskTriggerInfo.TriggerType.Daily,
+                Type = TaskTriggerInfo.TriggerDaily,
                 TimeOfDayTicks = TimeSpan.FromHours(2).Ticks
             }
         };
@@ -153,8 +153,7 @@ public class VideoConversionTask : IScheduledTask
             MediaTypes = new[] { MediaType.Video },
             IsVirtualItem = false,
             Recursive = true,
-            SourceTypes = new[] { SourceType.Library },
-            DtoOptions = new DtoOptions(true)
+            SourceTypes = new[] { SourceType.Library }
         };
 
         var pageSize = 100;
@@ -178,7 +177,7 @@ public class VideoConversionTask : IScheduledTask
 
                 try
                 {
-                    var mediaInfo = await GetMediaInfoAsync(video, cancellationToken);
+                    var mediaInfo = await GetMediaInfoAsync(video, cancellationToken).ConfigureAwait(false);
                     if (IsEligibleForConversion(mediaInfo, config))
                     {
                         eligibleVideos.Add(video);
@@ -204,11 +203,11 @@ public class VideoConversionTask : IScheduledTask
                 MediaSource = new MediaBrowser.Model.Dto.MediaSourceInfo
                 {
                     Path = video.Path,
-                    Protocol = MediaProtocol.File,
-                    VideoType = video.VideoType ?? VideoType.VideoFile
+                    Protocol = MediaBrowser.Model.MediaInfo.MediaProtocol.File,
+                    VideoType = video.VideoType
                 }
             },
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
 
         return mediaInfo;
     }
@@ -285,8 +284,8 @@ public class VideoConversionTask : IScheduledTask
             process.Start();
 
             // Read output for logging
-            var errorOutput = await process.StandardError.ReadToEndAsync(cancellationToken);
-            await process.WaitForExitAsync(cancellationToken);
+            var errorOutput = await process.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
 
             if (process.ExitCode != 0)
             {
@@ -332,7 +331,7 @@ public class VideoConversionTask : IScheduledTask
                         video,
                         video.GetParent(),
                         ItemUpdateType.MetadataImport,
-                        cancellationToken);
+                        cancellationToken).ConfigureAwait(false);
 
                     _logger.LogInformation("Original file replaced: {Path}", originalPath);
                 }
