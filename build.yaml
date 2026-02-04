@@ -1,0 +1,17 @@
+---
+name: "Space Saver"
+guid: "a4df60b5-9d3f-4e8c-b7a2-1f5e9c3d8a6b"
+version: "1.0.0.0"
+targetAbi: "10.9.0.0"
+framework: "net9.0"
+overview: "Automatically convert high-resolution videos to H265 for space savings"
+description: >
+  Space Saver plugin scans your Jellyfin library for videos at 720p or higher
+  that are not already in H265/HEVC codec, and converts them using the embedded
+  ffmpeg to save disk space. Configurable quality settings and scheduled task.
+category: "General"
+owner: "jellyfin"
+artifacts:
+- "Jellyfin.Plugin.SpaceSaver.dll"
+changelog: >
+  Initial release

@@ -1,0 +1,11 @@
+[
+    {
+        "guid": "a4df60b5-9d3f-4e8c-b7a2-1f5e9c3d8a6b",
+        "name": "Space Saver",
+        "description": "Automatically convert high-resolution videos to H265/HEVC codec for space savings. Scans your Jellyfin library for videos at 720p or higher resolution that are not already in H265/HEVC codec.",
+        "overview": "Automatically convert videos to H265 for disk space savings",
+        "owner": "kossnikita",
+        "category": "General",
+        "versions": []
+    }
+]
