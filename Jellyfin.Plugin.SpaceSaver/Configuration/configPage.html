@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Space Saver</title>
+</head>
+<body>
+    <div id="SpaceSaverConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-select,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="SpaceSaverConfigForm">
+                    <h2>Conversion Criteria</h2>
+
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="MinResolution">Minimum Resolution</label>
+                        <select is="emby-select" id="MinResolution" name="MinResolution" class="emby-select-withcolor emby-select">
+                            <option value="P720">720p (1280x720)</option>
+                            <option value="P1080">1080p (1920x1080)</option>
+                            <option value="P4K">4K (3840x2160)</option>
+                        </select>
+                        <div class="fieldDescription">Only convert videos at or above this resolution</div>
+                    </div>
+
+                    <h2>H265 Encoding Settings</h2>
+
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="Preset">Encoding Preset</label>
+                        <select is="emby-select" id="Preset" name="Preset" class="emby-select-withcolor emby-select">
+                            <option value="Ultrafast">Ultrafast (fastest, largest files)</option>
+                            <option value="Superfast">Superfast</option>
+                            <option value="Veryfast">Very Fast</option>
+                            <option value="Faster">Faster</option>
+                            <option value="Fast">Fast</option>
+                            <option value="Medium">Medium (balanced)</option>
+                            <option value="Slow">Slow (better compression)</option>
+                            <option value="Slower">Slower</option>
+                            <option value="Veryslow">Very Slow (best compression)</option>
+                        </select>
+                        <div class="fieldDescription">Encoding speed vs compression efficiency. Slower = better compression but longer encoding time.</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="CRF">CRF (Quality)</label>
+                        <input id="CRF" name="CRF" type="number" is="emby-input" min="0" max="51" />
+                        <div class="fieldDescription">Constant Rate Factor (0-51). Lower = better quality. Recommended: 23 (default), 18 (high quality), 28 (lower quality).</div>
+                    </div>
+
+                    <h2>Behavior</h2>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="ReplaceOriginalFile" name="ReplaceOriginalFile" type="checkbox" is="emby-checkbox" />
+                            <span>Replace Original Files</span>
+                        </label>
+                        <div class="fieldDescription">After successful conversion, replace the original file. WARNING: Make sure you have backups!</div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="EnableScheduledTask" name="EnableScheduledTask" type="checkbox" is="emby-checkbox" />
+                            <span>Enable Scheduled Task</span>
+                        </label>
+                        <div class="fieldDescription">Enable the automatic video conversion scheduled task</div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="MaxConcurrentConversions">Max Concurrent Conversions</label>
+                        <input id="MaxConcurrentConversions" name="MaxConcurrentConversions" type="number" is="emby-input" min="1" max="10" />
+                        <div class="fieldDescription">Maximum number of videos to convert simultaneously (currently limited to 1 in this version)</div>
+                    </div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var SpaceSaverConfig = {
+                pluginUniqueId: 'a4df60b5-9d3f-4e8c-b7a2-1f5e9c3d8a6b'
+            };
+
+            document.querySelector('#SpaceSaverConfigPage')
+                .addEventListener('pageshow', function() {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(SpaceSaverConfig.pluginUniqueId).then(function (config) {
+                        document.querySelector('#MinResolution').value = config.MinResolution || 'P720';
+                        document.querySelector('#Preset').value = config.Preset || 'Medium';
+                        document.querySelector('#CRF').value = config.CRF || 23;
+                        document.querySelector('#ReplaceOriginalFile').checked = config.ReplaceOriginalFile || false;
+                        document.querySelector('#EnableScheduledTask').checked = config.EnableScheduledTask !== false;
+                        document.querySelector('#MaxConcurrentConversions').value = config.MaxConcurrentConversions || 1;
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+            document.querySelector('#SpaceSaverConfigForm')
+                .addEventListener('submit', function(e) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(SpaceSaverConfig.pluginUniqueId).then(function (config) {
+                    config.MinResolution = document.querySelector('#MinResolution').value;
+                    config.Preset = document.querySelector('#Preset').value;
+                    config.CRF = parseInt(document.querySelector('#CRF').value);
+                    config.ReplaceOriginalFile = document.querySelector('#ReplaceOriginalFile').checked;
+                    config.EnableScheduledTask = document.querySelector('#EnableScheduledTask').checked;
+                    config.MaxConcurrentConversions = parseInt(document.querySelector('#MaxConcurrentConversions').value);
+
+                    // Keep ExcludedCodecs as default if not modified
+                    if (!config.ExcludedCodecs) {
+                        config.ExcludedCodecs = ['hevc', 'av1'];
+                    }
+
+                    ApiClient.updatePluginConfiguration(SpaceSaverConfig.pluginUniqueId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+
+                e.preventDefault();
+                return false;
+            });
+        </script>
+    </div>
+</body>
+</html>
